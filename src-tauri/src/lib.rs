@@ -17,6 +17,7 @@ pub fn run() {
         .manage(db_state)
         .invoke_handler(tauri::generate_handler![
             cmd_get_pdf_info,
+            cmd_read_file_bytes,
             cmd_merge_pdfs,
             cmd_split_pdf,
             cmd_organize_pdf,

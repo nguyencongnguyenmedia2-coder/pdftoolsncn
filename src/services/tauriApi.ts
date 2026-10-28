@@ -16,6 +16,35 @@ export const isTauriEnvironment = (): boolean => {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 };
 
+// Store browser File objects for web fallback or drag-and-drop without path
+const browserFileMap = new Map<string, File>();
+
+export function registerBrowserFile(key: string, file: File) {
+  browserFileMap.set(key, file);
+}
+
+// Read raw file bytes (fast binary IPC in Tauri 2)
+export async function readFileBytes(path: string): Promise<Uint8Array> {
+  const browserFile = browserFileMap.get(path);
+  if (browserFile) {
+    const buf = await browserFile.arrayBuffer();
+    return new Uint8Array(buf);
+  }
+  if (isTauriEnvironment()) {
+    const res = await invoke<ArrayBuffer | number[]>('cmd_read_file_bytes', { path });
+    if (res instanceof ArrayBuffer) {
+      return new Uint8Array(res);
+    }
+    if (ArrayBuffer.isView(res)) {
+      return new Uint8Array(res.buffer, res.byteOffset, res.byteLength);
+    }
+    if (Array.isArray(res)) {
+      return new Uint8Array(res);
+    }
+  }
+  throw new Error(`Không thể đọc dữ liệu nhị phân của tệp: ${path}`);
+}
+
 // Select files dialog
 export async function selectFiles(
   title: string,
@@ -54,7 +83,10 @@ export async function selectFiles(
           resolve([]);
           return;
         }
-        const fileNames = Array.from(input.files).map((f) => f.name);
+        const fileNames = Array.from(input.files).map((f) => {
+          registerBrowserFile(f.name, f);
+          return f.name;
+        });
         resolve(fileNames);
       };
       input.click();

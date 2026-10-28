@@ -10,9 +10,18 @@ import {
   Eye,
   ArrowUp,
   ArrowDown,
+  ChevronDown,
+  ChevronUp,
+  LayoutGrid,
 } from 'lucide-react';
 import { PdfFileInfo, ToolDef } from '../../types';
-import { selectFiles, selectOutputDirectory, openInExplorer } from '../../services/tauriApi';
+import {
+  selectFiles,
+  selectOutputDirectory,
+  openInExplorer,
+  registerBrowserFile,
+} from '../../services/tauriApi';
+import { PdfPageThumbnail } from './PdfPageThumbnail';
 
 interface WorkspaceProps {
   tool: ToolDef;
@@ -26,7 +35,7 @@ interface WorkspaceProps {
   resultMessage: string | null;
   resultOutputFiles: string[];
   errorMessage: string | null;
-  onPreviewFile: (file: PdfFileInfo) => void;
+  onPreviewFile: (file: PdfFileInfo, initialPage?: number) => void;
   pageRanges: Record<string, string>;
   setPageRanges: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }
@@ -48,6 +57,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({
   setPageRanges,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
+  // Track which files have "show all pages" expanded when pageCount > 12
+  const [expandedAllPages, setExpandedAllPages] = useState<Record<string, boolean>>({});
+  // Allow collapsing the page strip for individual files if desired (open by default)
+  const [collapsedFileStrip, setCollapsedFileStrip] = useState<Record<string, boolean>>({});
 
   // File picking
   const handlePickFiles = async () => {
@@ -95,12 +108,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({
     setIsDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = Array.from(e.dataTransfer.files);
-      const newItems: PdfFileInfo[] = droppedFiles.map((f) => ({
-        path: (f as any).path || f.name,
-        name: f.name,
-        size: f.size,
-        formattedSize: `${(f.size / (1024 * 1024)).toFixed(2)} MB`,
-      }));
+      const newItems: PdfFileInfo[] = droppedFiles.map((f) => {
+        const filePath = (f as any).path || f.name;
+        registerBrowserFile(filePath, f);
+        return {
+          path: filePath,
+          name: f.name,
+          size: f.size,
+          formattedSize: `${(f.size / (1024 * 1024)).toFixed(2)} MB`,
+        };
+      });
 
       if (tool.acceptsMultiple) {
         setFiles((prev) => [...prev, ...newItems]);
@@ -130,6 +147,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({
       setOutputDir(dir);
     }
   };
+
+  // Show visual page gallery inside each file card when not already in 'organize' tool
+  // (since 'organize' already displays the interactive page editor right above)
+  const showVisualPageGallery = tool.id !== 'organize';
 
   return (
     <div className="w-full max-w-7xl mx-auto px-6 pb-12">
@@ -210,92 +231,193 @@ export const Workspace: React.FC<WorkspaceProps> = ({
             </div>
 
             {/* List of Files */}
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-              {files.map((file, idx) => (
-                <div
-                  key={file.path || idx}
-                  className="flex items-center justify-between p-3 rounded-xl bg-[#17142A] border border-[#2A244E] hover:border-[#4B3E7F] transition-all"
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <span className="w-6 text-center text-xs font-bold text-[#7657F6]">
-                      #{idx + 1}
-                    </span>
-                    <div className="w-9 h-9 rounded-lg bg-[#251F47] flex items-center justify-center text-[#A78BFA] flex-shrink-0">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-white truncate" title={file.path}>
-                        {file.name}
-                      </p>
-                      <div className="flex items-center gap-2 text-[11px] text-[#7F7A9E]">
-                        <span>{file.formattedSize}</span>
-                        {file.pageCount && <span>• {file.pageCount} trang</span>}
-                        {file.encrypted && (
-                          <span className="text-[#EF4444] font-medium">• Có mật khẩu</span>
+            <div className="space-y-3 max-h-[540px] overflow-y-auto pr-1">
+              {files.map((file, idx) => {
+                const isPdf = file.name.toLowerCase().endsWith('.pdf');
+                const totalPages = file.pageCount || 1;
+                const isStripCollapsed = !!collapsedFileStrip[file.path];
+                const isAllExpanded = !!expandedAllPages[file.path];
+                const previewCount = isAllExpanded ? totalPages : Math.min(totalPages, 12);
+
+                return (
+                  <div
+                    key={file.path || idx}
+                    className="p-3.5 rounded-2xl bg-[#17142A] border border-[#2A244E] hover:border-[#4B3E7F] transition-all space-y-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className="w-6 text-center text-xs font-bold text-[#7657F6]">
+                          #{idx + 1}
+                        </span>
+
+                        {/* Real PDF Cover Thumbnail or File Icon */}
+                        {isPdf ? (
+                          <PdfPageThumbnail
+                            filePath={file.path}
+                            pageNumber={1}
+                            width={100}
+                            className="w-12 h-16 flex-shrink-0"
+                            onClick={() => onPreviewFile(file, 1)}
+                          />
+                        ) : (
+                          <div className="w-11 h-11 rounded-lg bg-[#251F47] flex items-center justify-center text-[#A78BFA] flex-shrink-0">
+                            <FileText className="w-5 h-5" />
+                          </div>
                         )}
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-white truncate" title={file.path}>
+                            {file.name}
+                          </p>
+                          <div className="flex items-center gap-2 text-[11px] text-[#7F7A9E] mt-0.5">
+                            <span>{file.formattedSize}</span>
+                            {file.pageCount && (
+                              <span className="text-[#A78BFA] font-medium">• {file.pageCount} trang</span>
+                            )}
+                            {file.encrypted && (
+                              <span className="text-[#EF4444] font-medium">• Có mật khẩu</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Merge Page Range selector */}
+                      {tool.id === 'merge' && (
+                        <div className="mx-2 flex items-center gap-1.5">
+                          <label className="text-[11px] text-[#9692AF] hidden md:inline">
+                            Phạm vi trang gộp:
+                          </label>
+                          <input
+                            type="text"
+                            value={pageRanges[file.path] || ''}
+                            onChange={(e) =>
+                              setPageRanges({ ...pageRanges, [file.path]: e.target.value })
+                            }
+                            placeholder="Tất cả (VD: 1-5)"
+                            className="w-28 px-2.5 py-1.5 text-[11px] bg-[#121025] text-white rounded-lg border border-[#2D2654] focus:outline-none focus:border-[#7657F6]"
+                          />
+                        </div>
+                      )}
+
+                      {/* Actions for this file */}
+                      <div className="flex items-center gap-1">
+                        {isPdf && showVisualPageGallery && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCollapsedFileStrip((prev) => ({
+                                ...prev,
+                                [file.path]: !prev[file.path],
+                              }))
+                            }
+                            className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-[#C5C0E6] hover:text-white bg-[#221C44] hover:bg-[#2F275C] border border-[#362D66] flex items-center gap-1 transition-colors"
+                            title={isStripCollapsed ? 'Hiện lưới ảnh các trang' : 'Ẩn lưới ảnh các trang'}
+                          >
+                            <LayoutGrid className="w-3.5 h-3.5 text-[#A78BFA]" />
+                            <span className="hidden sm:inline">
+                              {isStripCollapsed ? 'Hiện trang' : 'Ẩn trang'}
+                            </span>
+                            {isStripCollapsed ? (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
+
+                        {tool.acceptsMultiple && (
+                          <>
+                            <button
+                              disabled={idx === 0}
+                              onClick={() => moveFile(idx, 'up')}
+                              className="p-1.5 rounded-lg text-[#7F7A9E] hover:text-white hover:bg-[#272147] disabled:opacity-20"
+                              title="Di chuyển tệp lên"
+                            >
+                              <ArrowUp className="w-4 h-4" />
+                            </button>
+                            <button
+                              disabled={idx === files.length - 1}
+                              onClick={() => moveFile(idx, 'down')}
+                              className="p-1.5 rounded-lg text-[#7F7A9E] hover:text-white hover:bg-[#272147] disabled:opacity-20"
+                              title="Di chuyển tệp xuống"
+                            >
+                              <ArrowDown className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+
+                        {isPdf && (
+                          <button
+                            onClick={() => onPreviewFile(file, 1)}
+                            className="p-1.5 rounded-lg text-[#A78BFA] hover:text-white hover:bg-[#272147] transition-colors"
+                            title="Xem trước PDF toàn màn hình"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => removeFile(idx)}
+                          className="p-1.5 rounded-lg text-[#EF4444] hover:text-white hover:bg-red-900/40 transition-colors"
+                          title="Xóa tệp khỏi danh sách"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Merge Page Range selector */}
-                  {tool.id === 'merge' && (
-                    <div className="mx-3 flex items-center gap-1.5">
-                      <label className="text-[11px] text-[#9692AF] hidden md:inline">Trang:</label>
-                      <input
-                        type="text"
-                        value={pageRanges[file.path] || ''}
-                        onChange={(e) =>
-                          setPageRanges({ ...pageRanges, [file.path]: e.target.value })
-                        }
-                        placeholder="Tất cả (hoặc 1-3)"
-                        className="w-24 px-2 py-1 text-[11px] bg-[#121025] text-white rounded-lg border border-[#2D2654] focus:outline-none focus:border-[#7657F6]"
-                      />
-                    </div>
-                  )}
+                    {/* Visual PDF Pages Gallery for Merge / Split / Watermark / Compress */}
+                    {isPdf && showVisualPageGallery && !isStripCollapsed && (
+                      <div className="pt-2 border-t border-[#252044]">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] text-[#9692AF]">
+                            Hình ảnh các trang trong <strong className="text-white">{file.name}</strong> (Nhấn vào trang bất kỳ để phóng to):
+                          </span>
+                          {totalPages > 12 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedAllPages((prev) => ({
+                                  ...prev,
+                                  [file.path]: !prev[file.path],
+                                }))
+                              }
+                              className="text-[11px] font-semibold text-[#A78BFA] hover:text-white underline"
+                            >
+                              {isAllExpanded
+                                ? 'Thu gọn bớt (12 trang đầu)'
+                                : `Xem toàn bộ ${totalPages} trang`}
+                            </button>
+                          )}
+                        </div>
 
-                  {/* Actions for this file */}
-                  <div className="flex items-center gap-1">
-                    {tool.acceptsMultiple && (
-                      <>
-                        <button
-                          disabled={idx === 0}
-                          onClick={() => moveFile(idx, 'up')}
-                          className="p-1 rounded text-[#7F7A9E] hover:text-white disabled:opacity-20"
-                          title="Di chuyển lên"
-                        >
-                          <ArrowUp className="w-4 h-4" />
-                        </button>
-                        <button
-                          disabled={idx === files.length - 1}
-                          onClick={() => moveFile(idx, 'down')}
-                          className="p-1 rounded text-[#7F7A9E] hover:text-white disabled:opacity-20"
-                          title="Di chuyển xuống"
-                        >
-                          <ArrowDown className="w-4 h-4" />
-                        </button>
-                      </>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5 max-h-80 overflow-y-auto p-2.5 rounded-xl bg-[#121025] border border-[#241E42]">
+                          {Array.from({ length: previewCount }, (_, pIdx) => {
+                            const pageNum = pIdx + 1;
+                            return (
+                              <div
+                                key={pageNum}
+                                onClick={() => onPreviewFile(file, pageNum)}
+                                className="group cursor-pointer p-2 rounded-xl bg-[#1A1633] border border-[#2D2656] hover:border-[#7657F6] flex flex-col items-center transition-all"
+                              >
+                                <PdfPageThumbnail
+                                  filePath={file.path}
+                                  pageNumber={pageNum}
+                                  width={160}
+                                  className="w-full aspect-[1/1.38]"
+                                />
+                                <span className="text-[11px] font-medium text-[#C5C0E6] group-hover:text-white mt-1.5">
+                                  Trang {pageNum}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
-
-                    {file.name.endsWith('.pdf') && (
-                      <button
-                        onClick={() => onPreviewFile(file)}
-                        className="p-1.5 rounded-lg text-[#A78BFA] hover:text-white hover:bg-[#272147] transition-colors"
-                        title="Xem trước PDF"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => removeFile(idx)}
-                      className="p-1.5 rounded-lg text-[#EF4444] hover:text-white hover:bg-red-900/40 transition-colors"
-                      title="Xóa tệp khỏi danh sách"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Destination directory selector */}

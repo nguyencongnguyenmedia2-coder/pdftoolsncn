@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
+import { getPdfDocument } from './utils/pdfRenderer';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { ToolGrid } from './components/layout/ToolGrid';
@@ -110,6 +111,8 @@ export function App() {
 
   // Modals state
   const [previewFile, setPreviewFile] = useState<PdfFileInfo | null>(null);
+  const [previewInitialPage, setPreviewInitialPage] = useState<number>(1);
+  const lastOrganizedFileRef = useRef<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -155,21 +158,20 @@ export function App() {
   useEffect(() => {
     async function updateInfos() {
       for (const f of files) {
-        if (f.name.endsWith('.pdf') && (!f.pageCount || f.pageCount === 0)) {
+        if (f.name.toLowerCase().endsWith('.pdf') && (!f.pageCount || f.pageCount === 0)) {
           try {
             const info = await getPdfInfo(f.path);
-            setFiles((prev) =>
-              prev.map((item) => (item.path === f.path ? { ...item, ...info } : item))
-            );
-
-            // Populate organize pages if this is single file
-            if (files.length === 1 && info.pageCount) {
-              const pages: OrganizePageItem[] = [];
-              for (let i = 1; i <= info.pageCount; i++) {
-                pages.push({ pageNumber: i, rotation: 0, deleted: false });
-              }
-              setOrganizePages(pages);
+            let finalPageCount = info.pageCount || 0;
+            if (!finalPageCount || finalPageCount <= 0) {
+              try {
+                const doc = await getPdfDocument(f.path);
+                finalPageCount = doc.numPages;
+              } catch (_) {}
             }
+            const mergedInfo = { ...info, pageCount: finalPageCount || 1 };
+            setFiles((prev) =>
+              prev.map((item) => (item.path === f.path ? { ...item, ...mergedInfo } : item))
+            );
           } catch (err) {
             console.warn('Cannot read info for file:', f.path, err);
           }
@@ -178,6 +180,27 @@ export function App() {
     }
     if (files.length > 0) {
       updateInfos();
+    } else {
+      lastOrganizedFileRef.current = null;
+      setOrganizePages([]);
+    }
+  }, [files]);
+
+  // Keep organizePages synced with the first PDF file in workspace
+  useEffect(() => {
+    const firstPdf = files.find((f) => f.name.toLowerCase().endsWith('.pdf'));
+    if (
+      firstPdf &&
+      firstPdf.pageCount &&
+      firstPdf.pageCount > 0 &&
+      lastOrganizedFileRef.current !== `${firstPdf.path}::${firstPdf.pageCount}`
+    ) {
+      lastOrganizedFileRef.current = `${firstPdf.path}::${firstPdf.pageCount}`;
+      const pages: OrganizePageItem[] = [];
+      for (let i = 1; i <= firstPdf.pageCount; i++) {
+        pages.push({ pageNumber: i, rotation: 0, deleted: false });
+      }
+      setOrganizePages(pages);
     }
   }, [files]);
 
@@ -469,6 +492,11 @@ export function App() {
         <div className="w-full max-w-7xl mx-auto px-6">
           <ToolOptions
             tool={currentTool}
+            files={files}
+            onPreviewPage={(f, pageNum) => {
+              setPreviewInitialPage(pageNum);
+              setPreviewFile(f);
+            }}
             engineStatus={engineStatus}
             splitOptions={splitOptions}
             setSplitOptions={setSplitOptions}
@@ -508,7 +536,10 @@ export function App() {
           resultMessage={resultMessage}
           resultOutputFiles={resultOutputFiles}
           errorMessage={errorMessage}
-          onPreviewFile={(f) => setPreviewFile(f)}
+          onPreviewFile={(f, pageNum = 1) => {
+            setPreviewInitialPage(pageNum);
+            setPreviewFile(f);
+          }}
           pageRanges={pageRanges}
           setPageRanges={setPageRanges}
         />
@@ -521,7 +552,11 @@ export function App() {
       />
 
       {/* Modals */}
-      <PdfViewerModal file={previewFile} onClose={() => setPreviewFile(null)} />
+      <PdfViewerModal
+        file={previewFile}
+        initialPage={previewInitialPage}
+        onClose={() => setPreviewFile(null)}
+      />
       <HistoryModal
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}

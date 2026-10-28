@@ -21,6 +21,12 @@ pub fn cmd_get_pdf_info(path: String) -> Result<PdfInfo, String> {
 }
 
 #[tauri::command]
+pub fn cmd_read_file_bytes(path: String) -> Result<tauri::ipc::Response, String> {
+    let bytes = std::fs::read(&path).map_err(|e| format!("Không thể đọc tệp {}: {}", path, e))?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[tauri::command]
 pub fn cmd_merge_pdfs(
     files: Vec<String>,
     page_ranges: Option<HashMap<String, String>>,

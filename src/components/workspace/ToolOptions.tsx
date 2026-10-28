@@ -8,6 +8,7 @@ import {
   SecurityOptions,
   OrganizePageItem,
   SystemEngineStatus,
+  PdfFileInfo,
 } from '../../types';
 import {
   RotateCw,
@@ -17,10 +18,17 @@ import {
   CheckCircle2,
   ExternalLink,
   ShieldAlert,
+  ArrowLeft,
+  ArrowRight,
+  Copy,
+  ZoomIn,
 } from 'lucide-react';
+import { PdfPageThumbnail } from './PdfPageThumbnail';
 
 interface ToolOptionsProps {
   tool: ToolDef;
+  files: PdfFileInfo[];
+  onPreviewPage: (file: PdfFileInfo, pageNumber: number) => void;
   engineStatus: SystemEngineStatus;
   splitOptions: SplitOptions;
   setSplitOptions: React.Dispatch<React.SetStateAction<SplitOptions>>;
@@ -49,6 +57,8 @@ interface ToolOptionsProps {
 
 export const ToolOptions: React.FC<ToolOptionsProps> = ({
   tool,
+  files,
+  onPreviewPage,
   engineStatus,
   splitOptions,
   setSplitOptions,
@@ -74,6 +84,8 @@ export const ToolOptions: React.FC<ToolOptionsProps> = ({
   setOcrFormat,
   onOpenSettings,
 }) => {
+  const activePdfFile = files.find((f) => f.name.toLowerCase().endsWith('.pdf')) || null;
+
   // Check engine requirement notice
   const renderEngineNotice = () => {
     if (tool.requiresEngine === 'libreoffice') {
@@ -169,6 +181,23 @@ export const ToolOptions: React.FC<ToolOptionsProps> = ({
     return null;
   };
 
+  // Helper to move a page in organizePages
+  const moveOrganizePage = (idx: number, dir: 'left' | 'right') => {
+    const targetIdx = dir === 'left' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= organizePages.length) return;
+    const updated = [...organizePages];
+    const [moved] = updated.splice(idx, 1);
+    updated.splice(targetIdx, 0, moved);
+    setOrganizePages(updated);
+  };
+
+  // Helper to duplicate a page in organizePages
+  const duplicateOrganizePage = (idx: number) => {
+    const updated = [...organizePages];
+    updated.splice(idx + 1, 0, { ...organizePages[idx] });
+    setOrganizePages(updated);
+  };
+
   return (
     <div className="bg-[#17142A] border border-[#2A234E] rounded-2xl p-5 mb-5 space-y-4">
       <div className="flex items-center justify-between border-b border-[#252044] pb-3">
@@ -262,88 +291,171 @@ export const ToolOptions: React.FC<ToolOptionsProps> = ({
         </div>
       )}
 
-      {/* 2. Organize Pages Options */}
+      {/* 2. Organize Pages Options (Visual PDF Page Thumbnails) */}
       {tool.id === 'organize' && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-[#A78BFA]">
-              Danh sách các trang tài liệu ({organizePages.filter((p) => !p.deleted).length} trang được giữ):
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                const nextNum = organizePages.length + 1;
-                setOrganizePages([
-                  ...organizePages,
-                  {
-                    pageNumber: nextNum,
-                    rotation: 0,
-                    deleted: false,
-                    blank: true,
-                  },
-                ]);
-              }}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-[#7657F6]/20 text-[#A78BFA] hover:bg-[#7657F6]/30 border border-[#7657F6]/40 rounded-lg transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" /> Chèn trang trắng
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 max-h-72 overflow-y-auto p-2 bg-[#121025] rounded-xl border border-[#262047]">
-            {organizePages.map((page, idx) => (
-              <div
-                key={idx}
-                className={`p-2.5 rounded-xl border flex flex-col items-center justify-between transition-all ${
-                  page.deleted
-                    ? 'opacity-40 border-red-900/50 bg-red-950/20'
-                    : 'bg-[#1A1633] border-[#2D2656]'
-                }`}
-              >
-                <div
-                  className="w-16 h-20 bg-[#252044] rounded-lg border border-[#3A336B] flex items-center justify-center font-bold text-xs text-[#A78BFA] transition-transform duration-200"
-                  style={{ transform: `rotate(${page.rotation}deg)` }}
-                >
-                  {page.blank ? 'Trắng' : `P.${page.pageNumber}`}
-                </div>
-
-                <div className="text-[11px] font-semibold text-white mt-1.5">
-                  {page.blank ? 'Trang trắng' : `Trang ${page.pageNumber}`}
-                  {page.rotation > 0 && ` (${page.rotation}°)`}
-                </div>
-
-                <div className="flex items-center gap-1 mt-2">
+          {!activePdfFile ? (
+            <div className="text-xs text-[#9692AF] bg-[#121025] border border-[#262047] rounded-xl p-4 text-center">
+              Hãy chọn một tệp PDF ở bên dưới để hiển thị hình ảnh trực quan của từng trang tài liệu và chỉnh sửa (xoay, đổi thứ tự, nhân bản, xóa trang).
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs text-[#A78BFA] font-medium">
+                  Danh sách các trang tài liệu ({organizePages.filter((p) => !p.deleted).length} trang được giữ • Nhấn vào ảnh trang để phóng to):
+                </span>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    title="Xoay 90° cùng chiều kim đồng hồ"
                     onClick={() => {
-                      const updated = [...organizePages];
-                      updated[idx].rotation = ((updated[idx].rotation + 90) % 360) as 0 | 90 | 180 | 270;
+                      const updated = organizePages.map((p) => ({
+                        ...p,
+                        rotation: ((p.rotation + 90) % 360) as 0 | 90 | 180 | 270,
+                      }));
                       setOrganizePages(updated);
                     }}
-                    className="p-1 rounded bg-[#272147] hover:bg-[#7657F6] text-[#A78BFA] hover:text-white"
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs bg-[#221C44] text-[#C5C0E6] hover:text-white hover:bg-[#2F275C] border border-[#3B3273] rounded-lg transition-colors"
                   >
-                    <RotateCw className="w-3.5 h-3.5" />
+                    <RotateCw className="w-3.5 h-3.5" /> Xoay tất cả 90°
                   </button>
                   <button
                     type="button"
-                    title={page.deleted ? 'Khôi phục trang' : 'Xóa trang'}
                     onClick={() => {
-                      const updated = [...organizePages];
-                      updated[idx].deleted = !updated[idx].deleted;
-                      setOrganizePages(updated);
+                      const nextNum = organizePages.length + 1;
+                      setOrganizePages([
+                        ...organizePages,
+                        {
+                          pageNumber: nextNum,
+                          rotation: 0,
+                          deleted: false,
+                          blank: true,
+                        },
+                      ]);
                     }}
-                    className={`p-1 rounded ${
-                      page.deleted
-                        ? 'bg-green-800 text-white'
-                        : 'bg-[#272147] hover:bg-red-600 text-[#EF4444] hover:text-white'
-                    }`}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs bg-[#7657F6]/20 text-[#A78BFA] hover:bg-[#7657F6]/30 border border-[#7657F6]/40 rounded-lg transition-colors"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Plus className="w-3.5 h-3.5" /> Chèn trang trắng
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-[480px] overflow-y-auto p-3 bg-[#121025] rounded-xl border border-[#262047]">
+                {organizePages.map((page, idx) => (
+                  <div
+                    key={`${page.blank ? 'blank' : page.pageNumber}-${idx}`}
+                    className={`group p-3 rounded-xl border flex flex-col items-center justify-between transition-all ${
+                      page.deleted
+                        ? 'opacity-40 border-red-900/50 bg-red-950/20'
+                        : 'bg-[#1A1633] border-[#2D2656] hover:border-[#7657F6]'
+                    }`}
+                  >
+                    {/* Visual Page Image */}
+                    <div className="relative w-full aspect-[1/1.38] mb-2">
+                      <PdfPageThumbnail
+                        filePath={activePdfFile.path}
+                        pageNumber={page.pageNumber}
+                        rotation={page.rotation}
+                        blank={page.blank}
+                        width={220}
+                        className="w-full h-full"
+                        onClick={() => {
+                          if (!page.blank) {
+                            onPreviewPage(activePdfFile, page.pageNumber);
+                          }
+                        }}
+                      />
+                      {!page.blank && (
+                        <button
+                          type="button"
+                          onClick={() => onPreviewPage(activePdfFile, page.pageNumber)}
+                          title="Phóng to xem trang này"
+                          className="absolute top-1.5 right-1.5 p-1.5 rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#7657F6]"
+                        >
+                          <ZoomIn className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <span className="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded bg-black/70 text-[10px] font-bold text-white">
+                        #{idx + 1}
+                      </span>
+                    </div>
+
+                    <div className="text-xs font-semibold text-white">
+                      {page.blank ? 'Trang trắng' : `Trang gốc ${page.pageNumber}`}
+                      {page.rotation > 0 && (
+                        <span className="text-[#A78BFA] ml-1">({page.rotation}°)</span>
+                      )}
+                    </div>
+
+                    {/* Page Action Toolbar */}
+                    <div className="flex items-center justify-center gap-1 mt-2 w-full pt-2 border-t border-[#262047]">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        title="Đổi vị trí sang trái"
+                        onClick={() => moveOrganizePage(idx, 'left')}
+                        className="p-1.5 rounded bg-[#272147] hover:bg-[#7657F6] text-[#A78BFA] hover:text-white disabled:opacity-25"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={idx === organizePages.length - 1}
+                        title="Đổi vị trí sang phải"
+                        onClick={() => moveOrganizePage(idx, 'right')}
+                        className="p-1.5 rounded bg-[#272147] hover:bg-[#7657F6] text-[#A78BFA] hover:text-white disabled:opacity-25"
+                      >
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        title="Xoay 90° cùng chiều kim đồng hồ"
+                        onClick={() => {
+                          const updated = [...organizePages];
+                          updated[idx].rotation = ((updated[idx].rotation + 90) % 360) as
+                            | 0
+                            | 90
+                            | 180
+                            | 270;
+                          setOrganizePages(updated);
+                        }}
+                        className="p-1.5 rounded bg-[#272147] hover:bg-[#7657F6] text-[#A78BFA] hover:text-white"
+                      >
+                        <RotateCw className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        title="Nhân bản trang này"
+                        onClick={() => duplicateOrganizePage(idx)}
+                        className="p-1.5 rounded bg-[#272147] hover:bg-[#7657F6] text-[#A78BFA] hover:text-white"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        title={page.deleted ? 'Khôi phục trang' : 'Xóa trang'}
+                        onClick={() => {
+                          const updated = [...organizePages];
+                          updated[idx].deleted = !updated[idx].deleted;
+                          setOrganizePages(updated);
+                        }}
+                        className={`p-1.5 rounded ${
+                          page.deleted
+                            ? 'bg-green-700 text-white'
+                            : 'bg-[#272147] hover:bg-red-600 text-[#EF4444] hover:text-white'
+                        }`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
