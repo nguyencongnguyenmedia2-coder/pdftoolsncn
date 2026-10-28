@@ -28,24 +28,11 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Brand logo & title */}
         <div className="flex items-center space-x-3.5 cursor-pointer select-none" onClick={onOpenAbout}>
           <div className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-tr from-[#5836DB] via-[#7657F6] to-[#A78BFA] p-0.5 shadow-glow">
-            <div className="w-full h-full bg-[#120F24] rounded-[10px] flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-[#A78BFA]"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <path d="M9 13v-1h2a1 1 0 0 1 1 1v0a1 1 0 0 1-1 1H9" />
-                <path d="M9 17v-4" />
-                <path d="M14 13h1.5a1.5 1.5 0 0 1 0 3H14" />
-                <path d="M14 13v4" />
-              </svg>
-            </div>
+            <img
+              src="/logo-ncn.jpg"
+              alt="PDF Tools NCN"
+              className="w-full h-full object-cover rounded-[10px]"
+            />
             <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#22C55E] rounded-full border-2 border-[#0D0B18]" />
           </div>
 
