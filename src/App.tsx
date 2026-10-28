@@ -96,6 +96,9 @@ export function App() {
     ownerPassword: '',
   });
   const [organizePages, setOrganizePages] = useState<OrganizePageItem[]>([]);
+  const [organizeCompressLevel, setOrganizeCompressLevel] = useState<
+    'none' | 'low' | 'medium' | 'high'
+  >('none');
   const [metaTitle, setMetaTitle] = useState('');
   const [metaAuthor, setMetaAuthor] = useState('');
   const [metaStripAll, setMetaStripAll] = useState(false);
@@ -205,7 +208,7 @@ export function App() {
   }, [files]);
 
   // Handle Tool Execution
-  const handleExecute = async () => {
+  const handleExecute = async (overrideCompressLevel?: 'low' | 'medium' | 'high') => {
     if (files.length === 0) {
       setErrorMessage('Vui lòng chọn ít nhất một tệp để xử lý.');
       return;
@@ -254,10 +257,38 @@ export function App() {
         }
 
         case 'organize': {
-          const outFile = `${outputDir}\\${stem}_da_chinh_sua.pdf`;
+          const activeCompress =
+            overrideCompressLevel ||
+            (organizeCompressLevel !== 'none' ? organizeCompressLevel : null);
+          const outFile = `${outputDir}\\${stem}_da_chinh_sua${
+            activeCompress ? '_va_nen' : ''
+          }.pdf`;
           const res = await organizePdf(firstFile.path, organizePages, outFile);
-          outputFiles = [res];
-          setResultMessage('Đã hoàn thành xoay, sắp xếp và chỉnh sửa trang!');
+
+          if (activeCompress) {
+            setProgress(75);
+            const compRes = await compressPdf(
+              res,
+              activeCompress,
+              compressOptions.stripMetadata,
+              res
+            );
+            const origBytes = firstFile.size || compRes.originalSize || 1;
+            const finalBytes = compRes.compressedSize || origBytes;
+            const origMb = (origBytes / (1024 * 1024)).toFixed(2);
+            const finalMb = (finalBytes / (1024 * 1024)).toFixed(2);
+            const savedPct =
+              origBytes > finalBytes
+                ? (((origBytes - finalBytes) / origBytes) * 100).toFixed(1)
+                : compRes.savedPercentage.toFixed(1);
+            outputFiles = [compRes.outputPath];
+            setResultMessage(
+              `Đã chỉnh sửa trang & nén PDF thành công! Dung lượng: ${origMb} MB → ${finalMb} MB (Tiết kiệm ${savedPct}%).`
+            );
+          } else {
+            outputFiles = [res];
+            setResultMessage('Đã hoàn thành xoay, sắp xếp và chỉnh sửa trang!');
+          }
           break;
         }
 
@@ -270,8 +301,10 @@ export function App() {
             outFile
           );
           outputFiles = [res.outputPath];
+          const origMb = ((res.originalSize || firstFile.size || 0) / (1024 * 1024)).toFixed(2);
+          const compMb = ((res.compressedSize || 0) / (1024 * 1024)).toFixed(2);
           setResultMessage(
-            `Đã nén thành công! Tiết kiệm ${res.savedPercentage.toFixed(1)}% dung lượng.`
+            `Đã nén PDF thành công! Dung lượng: ${origMb} MB → ${compMb} MB (Tiết kiệm ${res.savedPercentage.toFixed(1)}%).`
           );
           break;
         }
@@ -502,6 +535,12 @@ export function App() {
             setSplitOptions={setSplitOptions}
             compressOptions={compressOptions}
             setCompressOptions={setCompressOptions}
+            organizeCompressLevel={organizeCompressLevel}
+            setOrganizeCompressLevel={setOrganizeCompressLevel}
+            onQuickCompressInOrganize={(lvl) => {
+              if (lvl) setOrganizeCompressLevel(lvl);
+              handleExecute(lvl || 'medium');
+            }}
             watermarkOptions={watermarkOptions}
             setWatermarkOptions={setWatermarkOptions}
             imageToPdfOptions={imageToPdfOptions}
@@ -530,7 +569,7 @@ export function App() {
           setFiles={setFiles}
           outputDir={outputDir}
           setOutputDir={setOutputDir}
-          onExecute={handleExecute}
+          onExecute={() => handleExecute()}
           isProcessing={isProcessing}
           progress={progress}
           resultMessage={resultMessage}

@@ -22,6 +22,7 @@ import {
   ArrowRight,
   Copy,
   ZoomIn,
+  Minimize2,
 } from 'lucide-react';
 import { PdfPageThumbnail } from './PdfPageThumbnail';
 
@@ -34,6 +35,9 @@ interface ToolOptionsProps {
   setSplitOptions: React.Dispatch<React.SetStateAction<SplitOptions>>;
   compressOptions: CompressOptions;
   setCompressOptions: React.Dispatch<React.SetStateAction<CompressOptions>>;
+  organizeCompressLevel?: 'none' | 'low' | 'medium' | 'high';
+  setOrganizeCompressLevel?: (val: 'none' | 'low' | 'medium' | 'high') => void;
+  onQuickCompressInOrganize?: (level?: 'low' | 'medium' | 'high') => void;
   watermarkOptions: WatermarkOptions;
   setWatermarkOptions: React.Dispatch<React.SetStateAction<WatermarkOptions>>;
   imageToPdfOptions: ImageToPdfOptions;
@@ -64,6 +68,9 @@ export const ToolOptions: React.FC<ToolOptionsProps> = ({
   setSplitOptions,
   compressOptions,
   setCompressOptions,
+  organizeCompressLevel = 'none',
+  setOrganizeCompressLevel,
+  onQuickCompressInOrganize,
   watermarkOptions,
   setWatermarkOptions,
   imageToPdfOptions,
@@ -456,6 +463,145 @@ export const ToolOptions: React.FC<ToolOptionsProps> = ({
               </div>
             </>
           )}
+
+          {/* Integrated PDF Compression Section underneath Page Editing */}
+          <div className="mt-4 pt-4 border-t border-[#28224B] space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#7657F6]/20 border border-[#7657F6]/40 flex items-center justify-center text-[#A78BFA]">
+                  <Minimize2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                    <span>Nén &amp; Giảm dung lượng PDF</span>
+                    <span className="px-2 py-0.5 text-[10px] rounded-full bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30 font-semibold">
+                      Tích hợp
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-[#9692AF]">
+                    Tùy chọn nén giảm dung lượng tệp PDF ngay sau khi chỉnh sửa trang hoặc nén trực tiếp
+                  </p>
+                </div>
+              </div>
+
+              {activePdfFile && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[#C5C0E6] bg-[#121025] px-3 py-1 rounded-lg border border-[#2A234E]">
+                    Dung lượng hiện tại: <strong className="text-[#A78BFA]">{activePdfFile.formattedSize}</strong>
+                  </span>
+                  {onQuickCompressInOrganize && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onQuickCompressInOrganize(
+                          organizeCompressLevel === 'none' ? 'medium' : organizeCompressLevel
+                        )
+                      }
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#22C55E] to-[#16A34A] hover:from-[#16A34A] hover:to-[#15803D] shadow-md transition-all"
+                    >
+                      <Minimize2 className="w-3.5 h-3.5" />
+                      <span>
+                        Nén PDF ngay (
+                        {organizeCompressLevel === 'none'
+                          ? 'Mức Cân bằng'
+                          : organizeCompressLevel === 'low'
+                          ? 'Mức Nhẹ'
+                          : organizeCompressLevel === 'medium'
+                          ? 'Mức Cân bằng'
+                          : 'Mức Mạnh'}
+                        )
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setOrganizeCompressLevel && setOrganizeCompressLevel('none')}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  organizeCompressLevel === 'none'
+                    ? 'bg-[#7657F6]/20 border-[#7657F6] text-white'
+                    : 'bg-[#121025] border-[#29234D] text-[#9692AF] hover:text-white'
+                }`}
+              >
+                <div className="font-semibold text-xs mb-0.5">Không nén</div>
+                <div className="text-[11px] text-[#7F7A9E]">
+                  Chỉ chỉnh sửa trang, giữ nguyên dung lượng gốc
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOrganizeCompressLevel && setOrganizeCompressLevel('low');
+                  setCompressOptions({ ...compressOptions, level: 'low' });
+                }}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  organizeCompressLevel === 'low'
+                    ? 'bg-[#7657F6]/20 border-[#7657F6] text-white'
+                    : 'bg-[#121025] border-[#29234D] text-[#9692AF] hover:text-white'
+                }`}
+              >
+                <div className="font-semibold text-xs mb-0.5">Nén Nhẹ (~20-30%)</div>
+                <div className="text-[11px] text-[#7F7A9E]">
+                  Bảo toàn độ sắc nét đồ họa và hình ảnh cao nhất
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOrganizeCompressLevel && setOrganizeCompressLevel('medium');
+                  setCompressOptions({ ...compressOptions, level: 'medium' });
+                }}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  organizeCompressLevel === 'medium'
+                    ? 'bg-[#7657F6]/20 border-[#7657F6] text-white'
+                    : 'bg-[#121025] border-[#29234D] text-[#9692AF] hover:text-white'
+                }`}
+              >
+                <div className="font-semibold text-xs mb-0.5">Nén Cân bằng (~40-60%)</div>
+                <div className="text-[11px] text-[#7F7A9E]">
+                  Khuyên dùng: Cân đối tối ưu giữa dung lượng và độ nét
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOrganizeCompressLevel && setOrganizeCompressLevel('high');
+                  setCompressOptions({ ...compressOptions, level: 'high' });
+                }}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  organizeCompressLevel === 'high'
+                    ? 'bg-[#7657F6]/20 border-[#7657F6] text-white'
+                    : 'bg-[#121025] border-[#29234D] text-[#9692AF] hover:text-white'
+                }`}
+              >
+                <div className="font-semibold text-xs mb-0.5">Nén Mạnh (~65-80%)</div>
+                <div className="text-[11px] text-[#7F7A9E]">
+                  Tối ưu hóa kích thước nhỏ nhất để gửi Email / Zalo
+                </div>
+              </button>
+            </div>
+
+            <label className="flex items-center gap-2 text-xs text-[#C5C0E6] cursor-pointer pt-0.5">
+              <input
+                type="checkbox"
+                checked={compressOptions.stripMetadata}
+                onChange={(e) =>
+                  setCompressOptions({ ...compressOptions, stripMetadata: e.target.checked })
+                }
+                className="rounded bg-[#121025] border-[#2E2756] text-[#7657F6] focus:ring-0"
+              />
+              <span>
+                Xóa thông tin metadata ẩn (tác giả, ngày tạo, phần mềm) và luồng thừa để giảm tối đa dung lượng
+              </span>
+            </label>
+          </div>
         </div>
       )}
 
