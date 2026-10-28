@@ -118,3 +118,4 @@ pub fn text_to_pdf(text_file_path: &str, output_path: &str) -> Result<String, St
     doc.save(output_path).map_err(|e| format!("Lỗi lưu PDF: {}", e))?;
     Ok(output_path.to_string())
 }
+

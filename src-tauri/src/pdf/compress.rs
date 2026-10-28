@@ -75,3 +75,4 @@ pub fn compress_pdf(
         saved_percentage,
     })
 }
+

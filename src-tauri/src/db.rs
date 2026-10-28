@@ -172,3 +172,4 @@ pub fn get_default_db_path() -> PathBuf {
         PathBuf::from("pdftools_ncn.db")
     }
 }
+

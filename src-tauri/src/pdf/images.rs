@@ -181,3 +181,4 @@ pub fn images_to_pdf(
     doc.save(output_path).map_err(|e| format!("Lỗi lưu file PDF: {}", e))?;
     Ok(output_path.to_string())
 }
+

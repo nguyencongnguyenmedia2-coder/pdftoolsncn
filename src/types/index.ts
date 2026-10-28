@@ -152,3 +152,4 @@ export interface SystemEngineStatus {
   tesseractVersion?: string;
   vietnameseOcrReady: boolean;
 }
+

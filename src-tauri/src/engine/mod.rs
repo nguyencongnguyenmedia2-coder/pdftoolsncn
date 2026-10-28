@@ -277,3 +277,4 @@ pub fn run_ocr(
         Err("Không tìm thấy tệp kết quả OCR đầu ra".into())
     }
 }
+

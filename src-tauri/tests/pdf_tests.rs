@@ -189,3 +189,4 @@ fn test_compress_and_watermark() {
     assert!(comp_res.is_ok());
     assert!(Path::new(&comp_path).exists());
 }
+

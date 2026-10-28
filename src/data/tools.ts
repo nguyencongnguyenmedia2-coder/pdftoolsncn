@@ -163,3 +163,4 @@ export const TOOLS: ToolDef[] = [
     acceptedExtensions: ['.pdf'],
   },
 ];
+

@@ -244,3 +244,4 @@ pub fn cmd_save_settings(state: State<'_, DbState>, settings: Value) -> Result<(
     let json_str = serde_json::to_string(&settings).map_err(|e| e.to_string())?;
     state.set_setting("app_settings", &json_str).map_err(|e| e.to_string())
 }
+
