@@ -120,6 +120,9 @@ export function App() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [engineStatus, setEngineStatus] = useState<SystemEngineStatus>({
     libreOfficeAvailable: false,
+    msOfficeAvailable: false,
+    officeReady: false,
+    officeEngineName: 'Đang kiểm tra...',
     tesseractAvailable: false,
     vietnameseOcrReady: false,
   });

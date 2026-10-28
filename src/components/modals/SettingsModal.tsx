@@ -114,22 +114,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               Trạng thái &amp; Động cơ bổ trợ
             </h3>
 
+            {/* Microsoft Office Status */}
+            <div className="p-3.5 rounded-xl bg-[#17142A] border border-[#2A244E] space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white">Microsoft Office (Word, Excel, PowerPoint)</span>
+                  {engineStatus.msOfficeAvailable ? (
+                    <span className="flex items-center gap-1 text-[11px] text-[#22C55E]">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Đã sẵn sàng
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[11px] text-[#9692AF]">
+                      Chưa phát hiện
+                    </span>
+                  )}
+                </div>
+                {engineStatus.msOfficeAvailable && (
+                  <span className="text-[11px] font-mono text-[#A78BFA]">
+                    {engineStatus.msOfficeVersion || 'Office 2021/365'}
+                  </span>
+                )}
+              </div>
+            </div>
+
             {/* LibreOffice Status */}
             <div className="p-3.5 rounded-xl bg-[#17142A] border border-[#2A244E] space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white">LibreOffice (Office sang PDF &amp; ngược lại)</span>
+                  <span className="text-xs font-bold text-white">LibreOffice (Mã nguồn mở bổ trợ)</span>
                   {engineStatus.libreOfficeAvailable ? (
                     <span className="flex items-center gap-1 text-[11px] text-[#22C55E]">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Đã sẵn sàng
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1 text-[11px] text-[#F59E0B]">
-                      <AlertTriangle className="w-3.5 h-3.5" /> Chưa cài đặt
+                    <span className="flex items-center gap-1 text-[11px] text-[#9692AF]">
+                      Tùy chọn (đã có MS Office)
                     </span>
                   )}
                 </div>
-                {!engineStatus.libreOfficeAvailable && (
+                {!engineStatus.libreOfficeAvailable && !engineStatus.msOfficeAvailable && (
                   <a
                     href="https://www.libreoffice.org/download/download/"
                     target="_blank"

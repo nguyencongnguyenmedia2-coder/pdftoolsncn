@@ -147,6 +147,10 @@ export interface SystemEngineStatus {
   libreOfficeAvailable: boolean;
   libreOfficePath?: string;
   libreOfficeVersion?: string;
+  msOfficeAvailable: boolean;
+  msOfficeVersion?: string;
+  officeReady: boolean;
+  officeEngineName: string;
   tesseractAvailable: boolean;
   tesseractPath?: string;
   tesseractVersion?: string;

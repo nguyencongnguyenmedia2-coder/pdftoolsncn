@@ -77,12 +77,14 @@ export const ToolOptions: React.FC<ToolOptionsProps> = ({
   // Check engine requirement notice
   const renderEngineNotice = () => {
     if (tool.requiresEngine === 'libreoffice') {
-      if (engineStatus.libreOfficeAvailable) {
+      if (engineStatus.officeReady) {
         return (
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#22C55E]/10 border border-[#22C55E]/30 text-xs text-[#22C55E]">
             <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
             <span>
-              Engine LibreOffice đã sẵn sàng ({engineStatus.libreOfficeVersion || 'Đã phát hiện'}).
+              {engineStatus.msOfficeAvailable
+                ? `Động cơ Microsoft Office (Word, Excel, PowerPoint) đã sẵn sàng.`
+                : `Engine LibreOffice đã sẵn sàng (${engineStatus.libreOfficeVersion || 'Đã phát hiện'}).`}
             </span>
           </div>
         );
@@ -92,10 +94,10 @@ export const ToolOptions: React.FC<ToolOptionsProps> = ({
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-[#F59E0B] flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-[#F59E0B]">Chưa phát hiện LibreOffice</p>
+              <p className="font-semibold text-[#F59E0B]">Chưa phát hiện Microsoft Office hoặc LibreOffice</p>
               <p className="text-[#D1D5DB] mt-1 leading-relaxed">
-                Để chuyển đổi Word, Excel, PowerPoint sang PDF và ngược lại trên máy tính offline,
-                ứng dụng sử dụng LibreOffice headless (miễn phí, mã nguồn mở).
+                Để chuyển đổi Word, Excel, PowerPoint sang PDF trên máy tính offline,
+                ứng dụng sử dụng Microsoft Office có sẵn hoặc LibreOffice headless (miễn phí).
               </p>
             </div>
           </div>
