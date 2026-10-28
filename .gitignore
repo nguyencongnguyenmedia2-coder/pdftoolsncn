@@ -10,6 +10,12 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.next
+website/.next
+website/out
+*.tsbuildinfo
+target
+src-tauri/target
 *.local
 
 # Editor directories and files
